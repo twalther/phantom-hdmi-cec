@@ -1,3 +1,4 @@
+const exec = require('child_process').exec;
 const http = require('http');
 const request = require('request-promise-native');
 const url = require('url');
@@ -11,12 +12,11 @@ const cecMonitor = require('hdmi-cec').CecMonitor;
 const logicalAddress = require('hdmi-cec').LogicalAddress;
 const operationCode = require('hdmi-cec').OperationCode;
 
-const deviceName = 'Devialet';
+const deviceName = 'DevialetRemote';
 const MAX_VOLUME = 50;
 const VOLUME_STEP_SIZE = 2;
 const SEARCH_RENDERER_INTERVAL = 10000;
 
-const monitor = new cecMonitor(deviceName, logicalAddress.AUDIOSYSTEM);
 
 let previousVolume = -1;
 let volume = -1;
@@ -55,34 +55,42 @@ function searchRenderer() {
 	setTimeout(searchRenderer, SEARCH_RENDERER_INTERVAL);
 }
 
-searchRenderer();
 
-monitor.on('data', function(data) {
-	//console.log(data);
+exec('tvservice --off', function(error, stdout, stderr) {
+	if (error) {
+		console.log(error.code);
+	}
 
-	if(data.indexOf('key pressed: volume') !== -1 && data.indexOf('current') === -1) {
+	const monitor = new cecMonitor(deviceName, logicalAddress.AUDIOSYSTEM);
+
+	searchRenderer();
+
+	monitor.on('data', function(data) {
 		//console.log(data);
 
-		if(data.indexOf('key pressed: volume down') !== -1) {
-			volume = volume - VOLUME_STEP_SIZE;
-		} else {
-			volume = volume + VOLUME_STEP_SIZE;
-		}
+		if(data.indexOf('key pressed: volume') !== -1 && data.indexOf('current') === -1) {
+			//console.log(data);
 
-		if(volume < 0) {
-			volume = 0;
-		} else if (volume > 127 || volume > MAX_VOLUME) {
-			volume = Math.min(MAX_VOLUME, 127);
-		}
+			if(data.indexOf('key pressed: volume down') !== -1) {
+				volume = volume - VOLUME_STEP_SIZE;
+			} else {
+				volume = volume + VOLUME_STEP_SIZE;
+			}
 
-		if(previousVolume !== volume) {
-			setVolume(volume);
+			if(volume < 0) {
+				volume = 0;
+			} else if (volume > 127 || volume > MAX_VOLUME) {
+				volume = Math.min(MAX_VOLUME, 127);
+			}
 
-			previousVolume = volume;
+			if(previousVolume !== volume) {
+				setVolume(volume);
+
+				previousVolume = volume;
+			}
 		}
-	}
+	});
 });
-
 
 
 function setVolume(volume) {
